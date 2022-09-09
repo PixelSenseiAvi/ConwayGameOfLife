@@ -27,7 +27,7 @@ public:
 
 	~Window();
 
-	bool RUN_SIMULATION = GL_FALSE, SKIP_FORWARD = GL_FALSE, READ_INSERT = GL_FALSE;
+	static bool RUN_SIMULATION = GL_FALSE, SKIP_FORWARD = GL_FALSE, READ_INSERT = GL_FALSE;
 
 private:
 	GLFWwindow* mainWindow;

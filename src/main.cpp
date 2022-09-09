@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <string.h>
+#include <cstring>
 #include <cmath>
 #include <vector>
 
@@ -160,3 +160,10 @@ int main()
 
 	return 0;
 }
+
+/*
+ ~GameOfLife() 
+      {
+         glDisableVertexAttribArray(0);
+      }
+*/
