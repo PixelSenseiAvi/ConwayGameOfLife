@@ -7,9 +7,9 @@
 #include "cudaGL.h"
 #include "cuda_gl_interop.h"
 #include "vectors.h"
-#include "Utilities.cuh"
 
-#include <Shader.h>
+#include "Utilities.cuh"
+#include "Shader.h"
 
 
 class GameOfLife
@@ -19,7 +19,6 @@ class GameOfLife
       VertexBuffer m_vb;
       VertexArray m_va;
       VertexBufferLayout m_layout;
-      Shader m_shader;
 
       GLuint m_VBO;
       dim3 m_threads;

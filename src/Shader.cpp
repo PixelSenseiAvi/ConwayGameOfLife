@@ -3,8 +3,6 @@
 Shader::Shader()
 {
 	shaderID = 0;
-	uniformModel = 0;
-	uniformProjection = 0;
 
 }
 
@@ -118,66 +116,17 @@ void Shader::CompileProgram() {
 		return;
 	}
 
-	uniformProjection = glGetUniformLocation(shaderID, "projection");
-	uniformModel = glGetUniformLocation(shaderID, "model");
-	uniformView = glGetUniformLocation(shaderID, "view");
-
-	
-	uniformSpecularIntensity = glGetUniformLocation(shaderID, "material.specularIntensity");
-	uniformShininess = glGetUniformLocation(shaderID, "material.shininess");
-	uniformEyePosition = glGetUniformLocation(shaderID, "eyePosition");
-
-	skybox = glGetUniformLocation(shaderID, "skybox");
-
-	uniformTexture = glGetUniformLocation(shaderID, "theTexture");
-	
-	uniformFarPlane = glGetUniformLocation(shaderID, "farPlane");
-
-}
-
-GLuint Shader::GetProjectionLocation()
-{
-	return uniformProjection;
-}
-GLuint Shader::GetModelLocation()
-{
-	return uniformModel;
-}
-GLuint Shader::GetViewLocation()
-{
-	return uniformView;
-}
-GLuint Shader::GetSpecularIntensityLocation()
-{
-	return uniformSpecularIntensity;
-}
-GLuint Shader::GetShininessLocation()
-{
-	return uniformShininess;
-}
-GLuint Shader::GetEyePositionLocation()
-{
-	return uniformEyePosition;
-}
-GLuint Shader::GetFarPlaneLocation()
-{
-	return uniformFarPlane;
-}
-GLuint Shader::GetSkyboxLocation()
-{
-	return skybox;
-}
-
-
-void Shader::SetTexture(GLuint textureUnit)
-{
-	glUniform1i(uniformTexture, textureUnit);
 }
 
 
 void Shader::UseShader()
 {
 	glUseProgram(shaderID);
+}
+
+void Shader::Unbind()
+{
+	glUseProgram(0);
 }
 
 void Shader::ClearShader()
@@ -187,9 +136,6 @@ void Shader::ClearShader()
 		glDeleteProgram(shaderID);
 		shaderID = 0;
 	}
-
-	uniformModel = 0;
-	uniformProjection = 0;
 }
 
 
@@ -218,6 +164,33 @@ void Shader::AddShader(GLuint theProgram, const char* shaderCode, GLenum shaderT
 	}
 
 	glAttachShader(theProgram, theShader);
+}
+
+void Shader::SetUniform1f(const std::string& name, float value)
+{
+	glUniform1f(GetUniformLocation(name), value);
+}
+
+void Shader::SetUniform1fv(const std::string& name, std::vector<float> data)
+{
+	glUniform1fv(GetUniformLocation(name), data.size(), data.data());
+}
+
+void Shader::SetUniformUint(const std::string& name, unsigned int value)
+{
+	glUniform1ui(GetUniformLocation(name), value) ;
+}
+
+void Shader::SetUniform4f(const std::string& name, float f0, float f1, float f2, float f3)
+{
+	glUniform4f(GetUniformLocation(name), f0, f1, f2, f3);
+}
+
+int Shader::GetUniformLocation(const std::string& name)
+{
+	int location = glGetUniformLocation(shaderID, name.c_str());
+	assert(location!=-1);
+	return location;
 }
 
 Shader::~Shader()

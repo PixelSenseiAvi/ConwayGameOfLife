@@ -1,5 +1,3 @@
-#define STB_IMAGE_IMPLEMENTATION
-
 #include <stdio.h>
 #include <string.h>
 #include <cmath>
@@ -14,7 +12,7 @@
 #include "Window.h"
 #include "Camera.h"
 
-#include "GameOfLife.cuh"
+#include "Utilities.cuh"
 
 
 const float toRadians = 3.14159265f / 180.0f;
@@ -37,6 +35,29 @@ static const char* vShader = "Shaders/shader.vert";
 // Fragment Shader
 static const char* fShader = "Shaders/shader.frag";
 
+/////////////////////////////////////////////
+//Size of each cell (in pixels)
+int pixelSize = 8;	//8 X 8 pixels for each cell
+
+const unsigned int threadsPerBlockX = 20;
+const unsigned int blockCountX = 6;
+
+const unsigned int threadsPerBlockY = 20;
+const unsigned int blockCountY = 6;
+
+// 120x120
+const unsigned int widthX = threadsPerBlockX * blockCountX; 
+const unsigned int widthY = threadsPerBlockY * blockCountY;
+
+dim3 threadSize(threadsPerBlockX, threadsPerBlockY);
+dim3 blockSize(blockCountX, blockCountY);
+//////////////////////////////////////////////
+
+size_t m_BufferSize;
+struct cudaGraphicsResource* m_resource;
+
+GLuint m_VBO;
+
 
 void CreateShaders()
 {
@@ -46,36 +67,68 @@ void CreateShaders()
 }
 
 
-void RenderScene()
+void Update()
 {
-	glm::mat4 model;
+	unsigned int* m_DevState;
+	unsigned int* m_DevNextState;
+	cudaMalloc((void**)&m_DevNextState, m_BufferSize);
+
+	cudaGraphicsMapResources(1, &m_resource, 0);
+	cudaGraphicsResourceGetMappedPointer((void**)&m_DevState, &m_BufferSize, m_resource);
+
+	_next<<<blockSize, threadSize>>>(m_DevState, m_DevNextState);
+	gpuErrchk( cudaPeekAtLastError() );
+	gpuErrchk( cudaMemcpy(m_DevState, m_DevNextState, m_BufferSize, cudaMemcpyDeviceToDevice) );
+
+	cudaGraphicsUnmapResources(1, &m_resource, 0);
+	cudaFree(m_DevNextState);
 
 }
 
 
-void RenderPass(glm::mat4 viewMatrix, glm::mat4 projectionMatrix)
+void init()
 {
-	glViewport(0, 0, 1366, 768);
 
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	CreateShaders();
+
+	glClearColor(0.0f, 0.0f, 1.0f, 0.0f);
+    glPointSize(pixelSize);
+    
+    // // Init Buffer
+    glGenBuffers(1, &m_VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
+    glBufferData(GL_ARRAY_BUFFER, widthX * widthY * sizeof(unsigned int), 0, GL_DYNAMIC_DRAW);
+
+    // Attrib Pointer
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 1, GL_UNSIGNED_INT, GL_FALSE, 0, 0);
 
 	shaderList[0].UseShader();
 
-	uniformProjection = shaderList[0].GetProjectionLocation();
-	uniformView = shaderList[0].GetViewLocation();
-	uniformEyePosition = shaderList[0].GetEyePositionLocation();
+	shaderList[0].SetUniformUint("_uWidthX", widthX);
+    shaderList[0].SetUniformUint("_uWidthY", widthY);
+	shaderList[0].SetUniform4f("_uOnColor", 1., 1., 1., 1.);
+	shaderList[0].SetUniform4f("_uOffColor", 0., 0., 0., 1.);
+	shaderList[0].SetUniform4f("_uWindowXY", -1.0, 1.0, -1.0, 1.0);
 
-	glUniformMatrix4fv(uniformProjection, 1, GL_FALSE, glm::value_ptr(projectionMatrix));
-	glUniformMatrix4fv(uniformView, 1, GL_FALSE, glm::value_ptr(viewMatrix));
-	glUniform3f(uniformEyePosition, camera.getCameraPosition().x, camera.getCameraPosition().y, camera.getCameraPosition().z);
+	// CUDA graphics resource 
+    cudaGraphicsGLRegisterBuffer(&m_resource, m_VBO, cudaGraphicsRegisterFlagsNone);
 
-
-	shaderList[0].SetTexture(1);
+    unsigned int* m_DevState;
+    m_BufferSize = widthX * widthY * sizeof(unsigned int);
+	cudaGraphicsMapResources(1, &m_resource, 0);
+	cudaGraphicsResourceGetMappedPointer((void**)&m_DevState, &m_BufferSize, m_resource);
+	_random<<<blockSize, threadSize>>>(m_DevState, 0.75f, 0);
+	cudaGraphicsUnmapResources(1, &m_resource, 0);
 
 	shaderList[0].Validate();
 
-	RenderScene();
+}
+
+void Draw()
+{
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+    glDrawArrays(GL_POINTS, 0, widthX * widthY);
 }
 
 int main() 
@@ -83,14 +136,7 @@ int main()
 	mainWindow = Window(1366, 768);
 	mainWindow.Initialise();
 
-	CreateShaders();
-
-	camera = Camera(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), -60.0f, 0.0f, 5.0f, 0.5f);
-
-
-	
-	glm::mat4 projection = glm::perspective(glm::radians(60.0f), (GLfloat)mainWindow.getBufferWidth() / mainWindow.getBufferHeight(), 0.1f, 100.0f);
-
+	init();
 	//main loop
 	while (!mainWindow.getShouldClose())
 	{
@@ -98,11 +144,17 @@ int main()
 		deltaTime = now - lastTime; 
 		lastTime = now;
 
-
 		glfwPollEvents();
-
-		RenderPass(camera.calculateViewMatrix(), projection);
-
+		if(mainWindow.RUN_SIMULATION)
+			Update();
+		if(mainWindow.SKIP_FORWARD)
+			Update();
+		mainWindow.SKIP_FORWARD = GL_FALSE;
+		if(mainWindow.READ_INSERT)
+		{
+			//TODO:
+		}
+		Draw();
 		mainWindow.swapBuffers();
 	}
 

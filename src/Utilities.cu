@@ -1,5 +1,5 @@
 #include <cstdio>
-#include "golCUDA.h"
+#include "Utilities.cuh"
 
 //TODO: Optimize the names
 

@@ -2,16 +2,14 @@
 
 #include <stdio.h>
 #include <string>
+#include <cstring>
 #include <iostream>
 #include <fstream>
 
 #include <GL/glew.h>
+#include <cassert>
+#include <vector>
 
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
-#include "CommonValues.h"
 
 class Shader
 {
@@ -26,33 +24,31 @@ public:
 
 	std::string ReadFile(const char* fileLocation);
 
-	GLuint GetProjectionLocation();
-	GLuint GetModelLocation();
-	GLuint GetViewLocation();
-	GLuint GetSpecularIntensityLocation();
-	GLuint GetShininessLocation();
-	GLuint GetEyePositionLocation();
-	GLuint GetFarPlaneLocation();
-	GLuint GetSkyboxLocation();
-
-	void SetTexture(GLuint textureUnit);
-
 	void UseShader();
+	void Unbind();
 	void ClearShader();
+
+	void SetUniform1f(const std::string& name, float value);
+	void SetUniform1fv(const std::string& name, std::vector<float> data);
+	void SetUniformUint(const std::string& name, unsigned int value);
+	void SetUniform4f(const std::string& name, float f0, float f1, float f2, float f3);
 
 	~Shader();
 
 private:
 
-	GLuint shaderID, uniformProjection, uniformModel, uniformView, uniformEyePosition,
+	GLuint shaderID;
+	/*, uniformProjection, uniformModel, uniformView, uniformEyePosition,
 		uniformSpecularIntensity, uniformShininess, 
 		uniformTexture, uniformFarPlane, skybox;
-	
+	*/
 
 	void CompileShader(const char* vertexCode, const char* fragmentCode);
 	void CompileShader(const char* vertexCode, const char* geometryCode, const char* fragmentCode);
 	void AddShader(GLuint theProgram, const char* shaderCode, GLenum shaderType);
 
 	void CompileProgram();
+
+	int GetUniformLocation(const std::string& name);
 };
 
