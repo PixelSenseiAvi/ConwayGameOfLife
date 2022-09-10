@@ -4,7 +4,6 @@ CC=nvcc
 LDFLAGS=-lGLEW -lGLU -lGL -lglfw
 DEBUG=-lineinfo
 
-INC_DIR=includes
 OBJ=src/main.o src/Utilities.o src/Shader.o src/Window.o 
 all: $(OBJ)
 	$(CC) $(OBJ) $(LDFLAGS) $(DEBUG) -o main
