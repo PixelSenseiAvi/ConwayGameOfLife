@@ -6,11 +6,11 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
-#include <glm/glm.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
 #include "Window.h"
-#include "Camera.h"
+#include "Shader.h"
+
+#include "cudaGL.h"
+#include "cuda_gl_interop.h"
 
 #include "Utilities.cuh"
 
@@ -21,13 +21,10 @@ Window mainWindow;
 
 std::vector<Shader> shaderList;
 
-Camera camera;
-
 //Texture dirtTexture;
 
 GLfloat deltaTime = 0.0f;
 GLfloat lastTime = 0.0f;
-GLuint skyboxLocation;
 
 // Vertex Shader
 static const char* vShader = "Shaders/shader.vert";
@@ -66,24 +63,47 @@ void CreateShaders()
 	shaderList.push_back(*shader1);
 }
 
+///////////////////////////////////////////////////
 
-void Update()
+void rle2state(std::string& rle, std::vector<unsigned int> &in, int x, int y)
 {
-	unsigned int* m_DevState;
-	unsigned int* m_DevNextState;
-	cudaMalloc((void**)&m_DevNextState, m_BufferSize);
+	std::string nums = "1234567890";
+	std::string stateString = "bo";
+	char lineEnd = '$';
 
-	cudaGraphicsMapResources(1, &m_resource, 0);
-	cudaGraphicsResourceGetMappedPointer((void**)&m_DevState, &m_BufferSize, m_resource);
+	int num_to_write; 
+	std::string currentNums = "";
+	for (auto i = rle.begin(); i != rle.end(); ++i)
+	{
+		// First check if number and count them
+		while( (nums.find(*i) != std::string::npos) )
+		{
+			currentNums += *i;
+			++i;
+		}
 
-	_next<<<blockSize, threadSize>>>(m_DevState, m_DevNextState);
-	gpuErrchk( cudaPeekAtLastError() );
-	gpuErrchk( cudaMemcpy(m_DevState, m_DevNextState, m_BufferSize, cudaMemcpyDeviceToDevice) );
+		if (currentNums != "")
+			num_to_write = std::stoi(currentNums);
+		else
+			num_to_write = 1;
 
-	cudaGraphicsUnmapResources(1, &m_resource, 0);
-	cudaFree(m_DevNextState);
-
+		// If now an entry, append to vector
+		if (*i == 'b' || *i == 'o')
+		{
+			for (int j = 0; j < num_to_write; j++)
+				in.push_back( (*i == 'o') );
+		} 
+		// If an endl,
+		else if (*i == '$') 
+		{
+			for (int j = 0; j < x * (num_to_write-1); j++)
+				in.push_back( 0 );
+		}
+		currentNums = "";
+	}
 }
+
+///////////////////////////////////////////////////
 
 
 void init()
@@ -131,6 +151,25 @@ void Draw()
     glDrawArrays(GL_POINTS, 0, widthX * widthY);
 }
 
+void Update()
+{
+	unsigned int* m_DevState;
+	unsigned int* m_DevNextState;
+	cudaMalloc((void**)&m_DevNextState, m_BufferSize);
+
+	cudaGraphicsMapResources(1, &m_resource, 0);
+	cudaGraphicsResourceGetMappedPointer((void**)&m_DevState, &m_BufferSize, m_resource);
+
+	_next<<<blockSize, threadSize>>>(m_DevState, m_DevNextState);
+	gpuErrchk( cudaPeekAtLastError() );
+	gpuErrchk( cudaMemcpy(m_DevState, m_DevNextState, m_BufferSize, cudaMemcpyDeviceToDevice) );
+
+	cudaGraphicsUnmapResources(1, &m_resource, 0);
+	cudaFree(m_DevNextState);
+
+}
+
+
 int main() 
 {
 	mainWindow = Window(1366, 768);
@@ -153,6 +192,12 @@ int main()
 		if(mainWindow.READ_INSERT)
 		{
 			//TODO:
+			std::string filename;
+			std::vector<unsigned int> state;
+			std::cin >> filename;
+			rle2state(filename, state, 0, 0);
+			for(auto &i : state)
+				std::cout << i;
 		}
 		Draw();
 		mainWindow.swapBuffers();

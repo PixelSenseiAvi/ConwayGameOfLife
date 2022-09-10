@@ -80,6 +80,10 @@ int Window::Initialise()
 	glfwSetWindowUserPointer(mainWindow, this);
 }
 
+bool Window::RUN_SIMULATION = GL_FALSE; 
+bool Window::SKIP_FORWARD = GL_FALSE;
+bool Window::READ_INSERT = GL_FALSE;
+
 void Window::createCallbacks()
 {
 	glfwSetKeyCallback(mainWindow, handleKeys);
